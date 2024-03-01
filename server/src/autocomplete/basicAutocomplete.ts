@@ -39,7 +39,9 @@ export class BasicAutocomplete implements Autocomplete {
                 label: argument.name,
                 kind: CompletionItemKind.Snippet,
                 insertTextFormat: InsertTextFormat.Snippet,
-                insertText: this.mapArguments([argument], false, 1, "")
+                insertText: this.mapArguments([argument], false, 1, ""),
+                documentation: argument.doc,
+                detail: argument.type,
             })
         }
         for (const block of component.blocks) {

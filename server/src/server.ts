@@ -9,7 +9,7 @@ import {
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { BasicAutocomplete } from './autocomplete/basicAutocomplete';
-import { FixtureComponentDataSource } from './datasource/fixture';
+import { MarkdownComponentDataSource } from './datasource/markdown';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 let connection = createConnection(ProposedFeatures.all);
@@ -17,7 +17,7 @@ let connection = createConnection(ProposedFeatures.all);
 // Create a simple text document manager. The TextDocuments class is a generic container that supports full text synchronization.
 let documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
-const dataSource = new FixtureComponentDataSource();
+const dataSource = new MarkdownComponentDataSource();
 let components = new Map<string, Component>();
 
 const autocomplete = new BasicAutocomplete();
@@ -80,16 +80,10 @@ connection.onCompletion(
 
 connection.onCompletionResolve(
   // use the doc from the components map
-  (item: any): any => {
-    if (item.data === 1) {
-      item.detail = 'scrape'; // Additional details about the completion item
-      item.documentation = 'scrape documentation'; // Documentation for the completion item
-    } else if (item.data === 2) {
-      item.detail = 'remote_write details';
-      item.documentation = 'remote_write documentation';
-    } else if (item.data === 3) {
-      item.detail = 'otel receiver prom details';
-      item.documentation = 'otel receiver prom documentation';
+  (item: CompletionItem): CompletionItem => {
+    let component = components.get(item.label)
+    if (component) {
+      item.documentation = component.doc
     }
     return item;
   }

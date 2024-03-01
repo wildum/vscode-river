@@ -19,6 +19,8 @@ type Export = {
     name: string;
     type: string;
     doc: string;
+    required: boolean;
+    default: any;
 }
 
 type Block = {

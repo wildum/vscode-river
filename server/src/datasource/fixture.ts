@@ -41,7 +41,9 @@ export class FixtureComponentDataSource implements ComponentDataSource {
                     {
                         name: "exportedFlag",
                         type: "boolean",
-                        doc: "An example exported boolean."
+                        doc: "An example exported boolean.",
+                        required: false,
+                        default: false,
                     }
                 ],
                 blocks: []
@@ -77,7 +79,9 @@ export class FixtureComponentDataSource implements ComponentDataSource {
                     {
                         name: "exportedString",
                         type: "string",
-                        doc: "An example exported string."
+                        doc: "An example exported string.",
+                        required: false,
+                        default: "blabla"
                     }
                 ],
                 blocks: [
