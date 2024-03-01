@@ -3,10 +3,13 @@ import {
   TextDocuments,
   ProposedFeatures,
   InitializeParams,
+  CompletionItem,
   DidChangeConfigurationNotification,
   TextDocumentSyncKind,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { BasicAutocomplete } from './autocomplete/basicAutocomplete';
+import { FixtureComponentDataSource } from './datasource/fixture';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 let connection = createConnection(ProposedFeatures.all);
@@ -14,8 +17,23 @@ let connection = createConnection(ProposedFeatures.all);
 // Create a simple text document manager. The TextDocuments class is a generic container that supports full text synchronization.
 let documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
+const dataSource = new FixtureComponentDataSource();
+let components = new Map<string, Component>();
+
+const autocomplete = new BasicAutocomplete();
+let completionItemsComponentList: CompletionItem[] = []
+
 connection.onInitialize((params: InitializeParams) => {
   connection.console.log("River Language Server is initializing...");
+
+  dataSource.getComponents().then(data => {
+    components = data
+    connection.console.log("components loaded: " + components.size)
+    autocomplete.GetCompletionItemsComponentList(components).then(data => {
+      completionItemsComponentList = data
+      connection.console.log("autocompletion items loaded " + completionItemsComponentList.length)
+    })
+  })
 
   return {
     capabilities: {
@@ -28,10 +46,14 @@ connection.onInitialize((params: InitializeParams) => {
 });
 
 connection.onCompletion(
-  (textDocumentPosition: { textDocument: { uri: string; }, position: any }): any => {
+  (textDocumentPosition: { textDocument: { uri: string; }, position: any }): CompletionItem[] => {
     const document = documents.get(textDocumentPosition.textDocument.uri);
     if (!document) {
       return []; // No document found
+    }
+
+    if (completionItemsComponentList.length == 0) {
+      return []; // Autocomplete is not ready yet
     }
 
     const text = document.getText({
@@ -39,71 +61,36 @@ connection.onCompletion(
       end: textDocumentPosition.position,
     });
 
-    let context = getContext(text)
+    let componentName = getComponentName(text)
 
-    connection.console.log("context: "+context)
-
-    if (context == "prometheus.scrape") {5
-      return [
-        {
-          label: 'blabla', // Display name of the completion item
-          kind: 1, // CompletionItemKind: Use an integer or the CompletionItemKind enum if available
-          data: 1, // An arbitrary data identifier that can be used in onCompletionResolve if resolveProvider is true
-        },
-        {
-          label: 'nonono',
-          kind: 1,
-          data: 2,
-        }]
-    } else if (context == "prometheus.remote_write") {
-      return [
-        {
-          label: 'yyyyyyyyy', // Display name of the completion item
-          kind: 1, // CompletionItemKind: Use an integer or the CompletionItemKind enum if available
-          data: 1, // An arbitrary data identifier that can be used in onCompletionResolve if resolveProvider is true
-        },
-        {
-          label: 'remeo',
-          kind: 1,
-          data: 2,
-        }]
-    } else if (context == "") {
-      return [
-        {
-          label: 'prometheus.scrape', // Display name of the completion item
-          kind: 1, // CompletionItemKind: Use an integer or the CompletionItemKind enum if available
-          data: 1, // An arbitrary data identifier that can be used in onCompletionResolve if resolveProvider is true
-        },
-        {
-          label: 'prometheus.remote_write',
-          kind: 1,
-          data: 2,
-        },
-        {
-          label: 'otel.receiver.prometheus',
-          kind: 1,
-          data: 3,
-        },
-      ];
+    if (componentName == "" || componentName == "declare") {
+      return completionItemsComponentList
     }
 
-   return []
-    
+    let component = components.get(componentName)
+    if (component) {
+      return autocomplete.GetCompletionItemsComponent(component)
+    }
+
+    // no match, no autocomplete
+    return []
+
   }
 );
 
 connection.onCompletionResolve(
+  // use the doc from the components map
   (item: any): any => {
-    // if (item.data === 1) {
-    //   item.detail = 'scrape'; // Additional details about the completion item
-    //   item.documentation = 'scrape documentation'; // Documentation for the completion item
-    // } else if (item.data === 2) {
-    //   item.detail = 'remote_write details';
-    //   item.documentation = 'remote_write documentation';
-    // } else if (item.data === 3) {
-    //   item.detail = 'otel receiver prom details';
-    //   item.documentation = 'otel receiver prom documentation';
-    // }
+    if (item.data === 1) {
+      item.detail = 'scrape'; // Additional details about the completion item
+      item.documentation = 'scrape documentation'; // Documentation for the completion item
+    } else if (item.data === 2) {
+      item.detail = 'remote_write details';
+      item.documentation = 'remote_write documentation';
+    } else if (item.data === 3) {
+      item.detail = 'otel receiver prom details';
+      item.documentation = 'otel receiver prom documentation';
+    }
     return item;
   }
 );
@@ -127,7 +114,7 @@ documents.listen(connection);
 // Listen on the connection
 connection.listen();
 
-function getContext(text: string) {
+function getComponentName(text: string): string {
   let blockText = '';
   let stack: string[] = []
   for (const c of text) {
@@ -143,8 +130,8 @@ function getContext(text: string) {
   if (stack.length == 0) {
     return ''
   }
- 
+
   let raw_context = stack.pop()
-  let context = raw_context?.trim().split(/[ \n\r\t]+/)[0]
-  return context
+  let componentName = raw_context?.trim().split(/[ \n\r\t]+/)[0]
+  return componentName ? componentName : ""
 }
