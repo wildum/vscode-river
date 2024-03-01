@@ -41,9 +41,8 @@ export function activate(context: ExtensionContext) {
         clientOptions
     );
 
-    // Start the client and add it to the subscriptions for proper disposal
+    // Start the client. This will also launch the server
     client.start();
-    context.subscriptions.push(client);
 }
 
 export function deactivate(): Thenable<void> | undefined {
