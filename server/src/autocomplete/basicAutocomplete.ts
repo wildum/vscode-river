@@ -9,6 +9,10 @@ import {
 } from './autocomplete'
 
 export class BasicAutocomplete implements Autocomplete {
+    connection: any
+    constructor(connect: any) {
+        this.connection = connect
+    }
     async GetCompletionItemsComponentList(components: Map<string, Component>): Promise<CompletionItem[]> {
         let completionItems:CompletionItem[] = []
         for (const component of components.values()) {
