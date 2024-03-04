@@ -32,10 +32,10 @@ export class MarkdownComponentDataSource implements ComponentDataSource {
                 // then check blocks
                 let blockArgsTable = this.extractTableData(fileResponse.data, "", 5)
                 if (blockArgsTable.length != 0) {
-                    this.sharedBlocks.set(file.name.replace("-block.md", ""), this.buildArguments(exportsTable))
+                    this.sharedBlocks.set(file.name.slice(0, -3), this.buildArguments(blockArgsTable))
                 }
             } catch (error) {
-                console.error(`Error fetching content for ${file.name}:`, error)
+                this.connection.console.error(`Error fetching content for ${file.name}:`, error)
             }
         }
 
@@ -47,7 +47,7 @@ export class MarkdownComponentDataSource implements ComponentDataSource {
                 let component = this.parseComponentFile(file.name, fileResponse.data)
                 components.set(component.name, component)
             } catch (error) {
-                console.error(`Error fetching content for ${file.name}:`, error)
+                this.connection.console.error(`Error fetching content for ${file.name}:`, error)
             }
         }
         return components
@@ -141,9 +141,6 @@ export class MarkdownComponentDataSource implements ComponentDataSource {
                     blocks: []
                 }
                 blocks.push(block)
-                if (block.name == "client") {
-                    this.connection.console.log("args: " + block.arguments.length)
-                }
             }
             // else we should add the block to the correct one
         }
@@ -175,7 +172,6 @@ export class MarkdownComponentDataSource implements ComponentDataSource {
                     args = this.sharedBlocks.get(ref) || []
                 }
             }
-
             blocksMap.set(blockName, args);
         });
     
