@@ -38,14 +38,12 @@ export class MarkdownComponentDataSource implements ComponentDataSource {
         }
 
         let exports: Export[] = []
-        const exportTable = this.extractTableData(content, "## Exported fields", 5)
+        const exportTable = this.extractTableData(content, "## Exported fields", 3)
         for (let parts of exportTable) {
             exports.push({
                 name: parts[0],
                 type: parts[1],
                 doc: parts[2],
-                required: parts[4].toLowerCase() === 'yes',
-                default: parts[3] || null,
             });
         }
     

@@ -23,13 +23,14 @@ export class BasicAutocomplete implements Autocomplete {
     }
 
     buildInsertTextComponent(component: Component): string {
-        const label = component.hasLabel ? " \"${1:LABEL}\"" : "";
+        const label = component.hasLabel ? " \"${1:LABEL}\"" : ""
         let autocompleteIdx = label !== "" ? 2 : 1
-        let args = this.mapArguments(component.arguments, true, autocompleteIdx, '\t');
-        let blocks = this.mapBlocks(component.blocks, true, '\t');
+        let args = this.mapArguments(component.arguments, true, autocompleteIdx, '\t')
+        let blocks = this.mapBlocks(component.blocks, true, '\t')
+        let exports = this.mapExports(component.exports, '\t')
         
-        const componentBody = [args, blocks].filter(part => part !== '').join('\n\n');
-        return `${component.name}${label} {\n${componentBody}\n}`;
+        const componentBody = [args, blocks, exports].filter(part => part !== '').join('\n\n')
+        return `${component.name}${label} {\n${componentBody}\n}`
     }
 
     GetCompletionItemsComponent(component: Component): CompletionItem[] {
@@ -69,5 +70,13 @@ export class BasicAutocomplete implements Autocomplete {
                 `${indent}${arg.name} = \${${autocompleteIdx++}:${arg.default}}`
             )
             .join('\n')
+    }
+
+    mapExports(exports: Export[], indent: string): string {
+        if (exports.length == 0) {
+            return `${indent}// This component does not have any exported fields.`
+        }
+        const fieldStr = exports.length == 1 ? "field" : "fields"
+        return `${indent}// Exported ${fieldStr}: ` + exports.map(exp => `${exp.name}(${exp.type})`).join(", ")
     }
 }
