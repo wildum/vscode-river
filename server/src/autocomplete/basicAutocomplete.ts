@@ -10,8 +10,10 @@ import {
 
 export class BasicAutocomplete implements Autocomplete {
     connection: any
-    constructor(connect: any) {
+    version: string
+    constructor(connect: any, version: string) {
         this.connection = connect
+        this.version = version
     }
     async GetCompletionItemsComponentList(components: Map<string, Component>): Promise<CompletionItem[]> {
         let completionItems:CompletionItem[] = []
@@ -31,9 +33,10 @@ export class BasicAutocomplete implements Autocomplete {
         let autocompleteIdx = label !== "" ? 2 : 1
         let args = this.mapArguments(component.arguments, true, autocompleteIdx, '\t')
         let blocks = this.mapBlocks(component.blocks, true, '\t')
+        let optionalArgs = this.mapOptionalArguments(component.arguments, '\t')
         let exports = this.mapExports(component.exports, '\t')
         
-        const componentBody = [args, blocks, exports].filter(part => part !== '').join('\n\n')
+        const componentBody = [args, blocks, optionalArgs, exports].filter(part => part !== '').join('\n\n')
         return `${component.name}${label} {\n${componentBody}\n}`
     }
 
@@ -67,11 +70,31 @@ export class BasicAutocomplete implements Autocomplete {
         .join("\n")
     }
 
+    mapOptionalArguments(args: Argument[], indent: string): string {
+        const optionalArgs = args.filter(arg => !arg.required)
+        if (optionalArgs.length == 0)
+            return ""
+        const argumentStr = optionalArgs.length == 1 ? "argument" : "arguments"
+        let result = `${indent}// Optional ${argumentStr}:\n${indent}// `;
+
+        optionalArgs.forEach((arg, index) => {
+            result += `${arg.name}`;
+            if (index !== optionalArgs.length - 1) {
+                result += ", ";
+                if ((index + 1) % 5 === 0) {
+                    result += `\n${indent}// `;
+                }
+            }
+        });
+    
+        return result;
+    }
+
     mapArguments(args: Argument[], filterRequired: boolean, autocompleteIdx: number, indent: string): string {
         let filteredArgs = filterRequired? args.filter(arg => arg.required) : args
         return filteredArgs
             .map(arg =>
-                `${indent}${arg.name} = \${${autocompleteIdx++}:${arg.default}}`
+                `${indent}${arg.name} = \${${autocompleteIdx++}:${arg.default}} // ${arg.type}`
             )
             .join('\n')
     }

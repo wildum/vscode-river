@@ -3,17 +3,18 @@ import axios from 'axios';
 export class MarkdownComponentDataSource implements ComponentDataSource {
 
     connection: any
-    constructor(connect: any) {
+    version: string
+    constructor(connect: any, version: string) {
         this.connection = connect
+        this.version = version
     }
 
     sharedBlocks = new Map<string, Block>()
     sharedExports = new Map<string, Export[]>()
 
     async getComponents(): Promise<Map<string, Component>> {
-        const branch = 'release-v0.40';
-        const sharedUrl = `https://api.github.com/repos/grafana/agent/contents/docs/sources/shared/flow/reference/components?ref=${branch}`
-        const componentsUrl = `https://api.github.com/repos/grafana/agent/contents/docs/sources/flow/reference/components?ref=${branch}`
+        const sharedUrl = `https://api.github.com/repos/grafana/agent/contents/docs/sources/shared/flow/reference/components?ref=${this.version}`
+        const componentsUrl = `https://api.github.com/repos/grafana/agent/contents/docs/sources/flow/reference/components?ref=${this.version}`
         
         this.sharedBlocks = new Map<string, Block>()
         this.sharedExports = new Map<string, Export[]>()

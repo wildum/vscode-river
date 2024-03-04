@@ -17,10 +17,12 @@ let connection = createConnection(ProposedFeatures.all);
 // Create a simple text document manager. The TextDocuments class is a generic container that supports full text synchronization.
 let documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
-const dataSource = new MarkdownComponentDataSource(connection);
+const version = 'release-v0.40';
+
+const dataSource = new MarkdownComponentDataSource(connection, version);
 let components = new Map<string, Component>();
 
-const autocomplete = new BasicAutocomplete(connection);
+const autocomplete = new BasicAutocomplete(connection, version);
 let completionItemsComponentList: CompletionItem[] = []
 
 connection.onInitialize((params: InitializeParams) => {
