@@ -9,14 +9,14 @@ export class MarkdownComponentDataSource implements ComponentDataSource {
         this.version = version
     }
 
-    sharedBlocks = new Map<string, Block>()
+    sharedBlocks = new Map<string, Argument[]>() // blockName => arguments of the block
     sharedExports = new Map<string, Export[]>()
 
     async getComponents(): Promise<Map<string, Component>> {
         const sharedUrl = `https://api.github.com/repos/grafana/agent/contents/docs/sources/shared/flow/reference/components?ref=${this.version}`
         const componentsUrl = `https://api.github.com/repos/grafana/agent/contents/docs/sources/flow/reference/components?ref=${this.version}`
         
-        this.sharedBlocks = new Map<string, Block>()
+        this.sharedBlocks = new Map<string, Argument[]>()
         this.sharedExports = new Map<string, Export[]>()
         
         const sharedFiles = await this.fetchFiles(sharedUrl)
@@ -25,12 +25,15 @@ export class MarkdownComponentDataSource implements ComponentDataSource {
                 const fileResponse = await axios.get(file.download_url)
                 // first check exports
                 let exportsTable = this.extractTableData(fileResponse.data, "", 3)
-                if (exports.length != 0) {
+                if (exportsTable.length != 0) {
                     this.sharedExports.set(file.name.slice(0, -3), this.buildExports(exportsTable))
                     continue
                 }
                 // then check blocks
-                // TODO
+                let blockArgsTable = this.extractTableData(fileResponse.data, "", 5)
+                if (blockArgsTable.length != 0) {
+                    this.sharedBlocks.set(file.name.replace("-block.md", ""), this.buildArguments(exportsTable))
+                }
             } catch (error) {
                 console.error(`Error fetching content for ${file.name}:`, error)
             }
@@ -74,14 +77,18 @@ export class MarkdownComponentDataSource implements ComponentDataSource {
         let args = this.buildArguments(argumentTable)
         
         const exportFieldMarker = "## Exported fields"
-        const ref = this.extractRef(content, exportFieldMarker)
+        const exportRef = this.extractRef(content, exportFieldMarker)
         let exports:Export[] = []
-        if (ref != "") {
-            exports = this.sharedExports.get(ref)!
+        if (exportRef != "") {
+            exports = this.sharedExports.get(exportRef)!
         } else {
             const exportTable = this.extractTableData(content, exportFieldMarker, 3)
             exports = this.buildExports(exportTable)
         }
+
+        const blockFieldMarker = "## Blocks"
+        const blocksTable = this.extractTableData(content, blockFieldMarker, 4)
+        let blocks = this.buildBlocks(content, blocksTable)
 
         return {
             name: componentName,
@@ -89,7 +96,7 @@ export class MarkdownComponentDataSource implements ComponentDataSource {
             arguments: args,
             hasLabel: true,
             exports: exports,
-            blocks: [], // TODO
+            blocks: blocks,
         };
     }
 
@@ -119,6 +126,62 @@ export class MarkdownComponentDataSource implements ComponentDataSource {
         return exports
     }
 
+    buildBlocks(content: string, tableData: string[][]): Block[] {
+        const blockMap = this.parseMarkdownBlocks(content)
+        let blocks: Block[] = []
+        for (let parts of tableData) {
+            const blockNameParts = parts[0].split(" > ")
+            if (blockNameParts.length == 1) {
+                const name = blockNameParts[0].trim()
+                let block: Block = {
+                    name: name,
+                    doc: parts[2],
+                    required: parts[3].toLowerCase() === "yes",
+                    arguments: blockMap.get(name) || [],
+                    blocks: []
+                }
+                blocks.push(block)
+                if (block.name == "client") {
+                    this.connection.console.log("args: " + block.arguments.length)
+                }
+            }
+            // else we should add the block to the correct one
+        }
+        return blocks
+    }
+
+    parseMarkdownBlocks(content: string): Map<string, Argument[]> {
+        // Find the "## Blocks" section
+        const blocksSectionMatch = content.match(/## Blocks\n([\s\S]*?)(?=\n## |$)/);
+        if (!blocksSectionMatch) return new Map();
+    
+        const blocksSection = blocksSectionMatch[1];
+        const blockSubsections = blocksSection.split(/\n### /).slice(1); // slice(1) to jump to the first block
+    
+        const blocksMap = new Map<string, Argument[]>();
+        blockSubsections.forEach(subsection => {
+            const titleEndIndex = subsection.indexOf('\n');
+            const blockName = subsection.substring(0, titleEndIndex).split(" ")[0].trim();
+            const content = subsection.substring(titleEndIndex + 1).trim();
+
+           
+            let args:Argument[] = []
+            const blockTable = this.extractTableData(content, "", 5)
+            if (blockTable.length != 0) {
+                args = this.buildArguments(blockTable)
+            } else {
+                const ref = this.extractRef(content, "")
+                if (ref != "") {
+                    args = this.sharedBlocks.get(ref) || []
+                }
+            }
+
+            blocksMap.set(blockName, args);
+        });
+    
+        return blocksMap;
+    }
+
     extractTableData(content: string, marker: string, expectedColumns: number): string[][] {
         const endMarker = '#'
         let section = content
@@ -139,9 +202,13 @@ export class MarkdownComponentDataSource implements ComponentDataSource {
 
     extractRef(content: string, marker: string): string {
         const endMarker = '#'
-        const startIndex = content.indexOf(marker) + marker.length
-        let endIndex = content.indexOf(endMarker, startIndex)
-        let section = content.substring(startIndex, endIndex).trim()
+        let section = content
+    
+        if (marker != "") {
+            const startIndex = content.indexOf(marker) + marker.length
+            let endIndex = content.indexOf(endMarker, startIndex)
+            section = content.substring(startIndex, endIndex).trim()
+        }
 
         const pattern = /{{<\s*docs\/shared\s+lookup="([^"]*\/)?([^\/"]+).md"/;
         const match = section.match(pattern);

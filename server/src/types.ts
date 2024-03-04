@@ -25,4 +25,6 @@ type Block = {
     name: string;
     doc: string;
     required: boolean;
+    arguments: Argument[];
+    blocks: Block[];
 }

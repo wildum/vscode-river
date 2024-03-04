@@ -63,16 +63,30 @@ connection.onCompletion(
       end: textDocumentPosition.position,
     });
 
-    let componentName = getComponentName(text)
+    let context = getContext(text)
+    connection.console.log("context: " + context.join(", "))
 
-    if (componentName == "" || componentName == "declare") {
+    // root level or in a declare
+    if (context.length == 0 || context[0] == "declare") {
       return completionItemsComponentList
     }
 
-    let component = components.get(componentName)
+    // component level
+    let component = components.get(context[0])
     if (component) {
       return autocomplete.GetCompletionItemsComponent(component)
     }
+
+    // block level
+    let it = 1
+    while (it < context.length) {
+      let component = components.get(context[it])
+      if (component) {
+        return autocomplete.GetCompletionItemsBlock(component, context.slice(0, it))
+      }
+      it++
+    }
+
 
     // no match, no autocomplete
     return []
@@ -110,12 +124,14 @@ documents.listen(connection);
 // Listen on the connection
 connection.listen();
 
-function getComponentName(text: string): string {
+// returns the open blocks, starting from the most nested to the root
+function getContext(text: string): string[] {
   let blockText = '';
   let stack: string[] = []
   for (const c of text) {
     if (c == "{") {
       stack.push(blockText)
+      blockText = ""
     } else if (c == "}") {
       stack.pop();
       blockText = ""
@@ -124,10 +140,14 @@ function getComponentName(text: string): string {
     }
   }
   if (stack.length == 0) {
-    return ''
+    return []
   }
 
-  let raw_context = stack.pop()
-  let componentName = raw_context?.trim().split(/[ \n\r\t]+/)[0]
-  return componentName ? componentName : ""
+  let context = []
+  for (const c of stack) {
+    let arr = c!.trim().split(/[ \n\r\t]+/)
+    // ignore label if there is any
+    context.push(arr[arr.length - 1].includes("\"") ? arr[arr.length - 2] : arr[arr.length - 1])
+  }
+  return context.reverse()
 }

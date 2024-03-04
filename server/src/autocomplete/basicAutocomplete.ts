@@ -34,9 +34,10 @@ export class BasicAutocomplete implements Autocomplete {
         let args = this.mapArguments(component.arguments, true, autocompleteIdx, '\t')
         let blocks = this.mapBlocks(component.blocks, true, '\t')
         let optionalArgs = this.mapOptionalArguments(component.arguments, '\t')
+        let optionalBlocks = this.mapOptionalBlocks(component.blocks, '\t')
         let exports = this.mapExports(component.exports, '\t')
         
-        const componentBody = [args, blocks, optionalArgs, exports].filter(part => part !== '').join('\n\n')
+        const componentBody = [args, blocks, optionalArgs, optionalBlocks, exports].filter(part => part !== '').join('\n\n')
         return `${component.name}${label} {\n${componentBody}\n}`
     }
 
@@ -63,11 +64,66 @@ export class BasicAutocomplete implements Autocomplete {
         return completionItems
     }
 
+    GetCompletionItemsBlock(component: Component, context: string[]): CompletionItem[] {
+        let completionItems:CompletionItem[] = []
+        let blocks = component.blocks
+        let block = null
+        let revContext = context.reverse() // reverse to start from the component level
+        for (let i = 0; i < revContext.length; i++) {
+            const found = blocks.find(b => b.name == revContext[i])
+            if (!found) {
+                this.connection.console.log("broken blocks hierarchy " + component.name)
+                return completionItems
+            }
+            blocks = found.blocks
+            block = found
+        }
+        if (!block) {
+            this.connection.console.log("super broken blocks hierarchy " + component.name)
+            return completionItems
+        }
+        for (const argument of block.arguments) {
+            completionItems.push({
+                label: argument.name,
+                kind: CompletionItemKind.Snippet,
+                insertTextFormat: InsertTextFormat.Snippet,
+                insertText: this.mapArguments([argument], false, 1, ""),
+                documentation: argument.doc,
+                detail: argument.type,
+            })
+        }
+        for (const b of block.blocks) {
+            completionItems.push({
+                label: b.name,
+                kind: CompletionItemKind.Snippet,
+                insertTextFormat: InsertTextFormat.Snippet,
+                insertText: this.mapBlocks([b], false, "")
+            })
+        }
+        return completionItems
+    }
+
     mapBlocks(blocks: Block[], filterRequired: boolean, indent: string): string {
         let filteredBlocks = filterRequired? blocks.filter(block => block.required) : blocks
         return filteredBlocks
-        .map(block => `${indent}${block.name} {\n${indent}}`)
+        .map(block => {
+            let args = this.mapArguments(block.arguments, true, 30, '\t')
+            let nestedBlocks = this.mapBlocks(block.blocks, true, '\t')
+            let optionalArgs = this.mapOptionalArguments(block.arguments, '\t')
+            let optionalNestedBlocks = this.mapOptionalBlocks(block.blocks, '\t')
+            
+            const blockBody = [args, nestedBlocks, optionalArgs, optionalNestedBlocks].filter(part => part !== '').join('\n\n')
+            return `${indent}${block.name} {\n${indent}${blockBody}\n}`
+        })
         .join("\n")
+    }
+
+    mapOptionalBlocks(blocks: Block[], indent: string): string {
+        const optionalBlocks = blocks.filter(block => !block.required)
+        if (optionalBlocks.length == 0)
+            return ""
+        const blockStr = optionalBlocks.length == 1 ? "block" : "blocks"
+        return `${indent}// Optional ${blockStr}:` + optionalBlocks.map(block => `${block.name}`).join(", ")
     }
 
     mapOptionalArguments(args: Argument[], indent: string): string {
