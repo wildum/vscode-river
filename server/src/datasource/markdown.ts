@@ -9,12 +9,15 @@ export class MarkdownComponentDataSource implements ComponentDataSource {
         this.version = version
     }
 
+    componentWithoutLabels = new Set<string>(["http", "logging", "remotecfg", "tracing"])
+
     sharedBlocks = new Map<string, Argument[]>() // blockName => arguments of the block
     sharedExports = new Map<string, Export[]>()
 
     async getComponents(): Promise<Map<string, Component>> {
         const sharedUrl = `https://api.github.com/repos/grafana/agent/contents/docs/sources/shared/flow/reference/components?ref=${this.version}`
         const componentsUrl = `https://api.github.com/repos/grafana/agent/contents/docs/sources/flow/reference/components?ref=${this.version}`
+        const configBlocksUrl = `https://api.github.com/repos/grafana/agent/contents/docs/sources/flow/reference/config-blocks?ref=${this.version}`
         
         this.sharedBlocks = new Map<string, Argument[]>()
         this.sharedExports = new Map<string, Export[]>()
@@ -42,6 +45,17 @@ export class MarkdownComponentDataSource implements ComponentDataSource {
         let components = new Map<string, Component>()
         const componentFiles = await this.fetchFiles(componentsUrl)
         for (const file of componentFiles) {
+            try {
+                const fileResponse = await axios.get(file.download_url)
+                let component = this.parseComponentFile(file.name, fileResponse.data)
+                components.set(component.name, component)
+            } catch (error) {
+                this.connection.console.error(`Error fetching content for ${file.name}:`, error)
+            }
+        }
+
+        const configBlocksFiles = await this.fetchFiles(configBlocksUrl)
+        for (const file of configBlocksFiles) {
             try {
                 const fileResponse = await axios.get(file.download_url)
                 let component = this.parseComponentFile(file.name, fileResponse.data)
@@ -94,7 +108,7 @@ export class MarkdownComponentDataSource implements ComponentDataSource {
             name: componentName,
             doc: doc,
             arguments: args,
-            hasLabel: true,
+            hasLabel: !this.componentWithoutLabels.has(componentName),
             exports: exports,
             blocks: blocks,
         };
