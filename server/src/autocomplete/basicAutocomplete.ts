@@ -31,7 +31,7 @@ export class BasicAutocomplete implements Autocomplete {
     buildInsertTextComponent(component: Component): string {
         const label = component.hasLabel ? " \"${1:LABEL}\"" : ""
         let autocompleteIdx = label !== "" ? 2 : 1
-        let args = this.mapArguments(component.arguments, true, autocompleteIdx, '\t')
+        let args = this.mapArguments(component.arguments, true, true, autocompleteIdx, '\t')
         let blocks = this.mapBlocks(component.blocks, true, '\t')
         let optionalArgs = this.mapOptionalArguments(component.arguments, '\t')
         let optionalBlocks = this.mapOptionalBlocks(component.blocks, '\t')
@@ -48,7 +48,7 @@ export class BasicAutocomplete implements Autocomplete {
                 label: argument.name,
                 kind: CompletionItemKind.Snippet,
                 insertTextFormat: InsertTextFormat.Snippet,
-                insertText: this.mapArguments([argument], false, 1, ""),
+                insertText: this.mapArguments([argument], false, false, 1, ""),
                 documentation: argument.doc,
                 detail: argument.type,
             })
@@ -87,7 +87,7 @@ export class BasicAutocomplete implements Autocomplete {
                 label: argument.name,
                 kind: CompletionItemKind.Snippet,
                 insertTextFormat: InsertTextFormat.Snippet,
-                insertText: this.mapArguments([argument], false, 1, ""),
+                insertText: this.mapArguments([argument], false, false, 1, ""),
                 documentation: argument.doc,
                 detail: argument.type,
             })
@@ -107,7 +107,7 @@ export class BasicAutocomplete implements Autocomplete {
         let filteredBlocks = filterRequired? blocks.filter(block => block.required) : blocks
         return filteredBlocks
         .map(block => {
-            let args = this.mapArguments(block.arguments, true, 30, '\t')
+            let args = this.mapArguments(block.arguments, true, true, 30, '\t')
             let nestedBlocks = this.mapBlocks(block.blocks, true, '\t')
             let optionalArgs = this.mapOptionalArguments(block.arguments, '\t')
             let optionalNestedBlocks = this.mapOptionalBlocks(block.blocks, '\t')
@@ -123,7 +123,7 @@ export class BasicAutocomplete implements Autocomplete {
         if (optionalBlocks.length == 0)
             return ""
         const blockStr = optionalBlocks.length == 1 ? "block" : "blocks"
-        return `${indent}// Optional ${blockStr}:` + optionalBlocks.map(block => `${block.name}`).join(", ")
+        return `${indent}// Optional ${blockStr}: ` + optionalBlocks.map(block => `${block.name}`).join(", ")
     }
 
     mapOptionalArguments(args: Argument[], indent: string): string {
@@ -146,11 +146,13 @@ export class BasicAutocomplete implements Autocomplete {
         return result;
     }
 
-    mapArguments(args: Argument[], filterRequired: boolean, autocompleteIdx: number, indent: string): string {
+    mapArguments(args: Argument[], filterRequired: boolean, addDoc: boolean, autocompleteIdx: number, indent: string): string {
         let filteredArgs = filterRequired? args.filter(arg => arg.required) : args
         return filteredArgs
-            .map(arg =>
-                `${indent}${arg.name} = \${${autocompleteIdx++}:${arg.default}} // ${arg.type}`
+            .map(arg => {
+                    const doc = addDoc ? `${indent}// ${arg.doc}\n` : ""
+                    return doc + `${indent}${arg.name} = \${${autocompleteIdx++}:${arg.default}} // ${arg.type}`
+                }
             )
             .join('\n')
     }

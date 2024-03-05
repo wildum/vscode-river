@@ -141,10 +141,30 @@ export class MarkdownComponentDataSource implements ComponentDataSource {
                     blocks: []
                 }
                 blocks.push(block)
+            } else {
+                this.addBlockToBlock(blocks, blockMap, blockNameParts, parts)
             }
-            // else we should add the block to the correct one
         }
         return blocks
+    }
+
+    addBlockToBlock(blocks: Block[], blockMap: Map<string, Argument[]>, blockNameParts: string[], parts: string[]) {
+        for (let i = 0; i < blocks.length; i++) {
+            if (blockNameParts[0] == blocks[i].name) {
+                if (blockNameParts.length == 2) {
+                    const name = blockNameParts[blockNameParts.length - 1].trim()
+                    blocks[i].blocks.push({
+                        name: name,
+                        doc: parts[2],
+                        required: parts[3].toLowerCase() === "yes",
+                        arguments: blockMap.get(name) || [],
+                        blocks: []
+                    })
+                } else {
+                    this.addBlockToBlock(blocks[i].blocks, blockMap, blockNameParts.slice(1), parts)
+                }
+            }
+        }
     }
 
     parseMarkdownBlocks(content: string): Map<string, Argument[]> {
