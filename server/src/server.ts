@@ -4,25 +4,29 @@ import {
   ProposedFeatures,
   InitializeParams,
   CompletionItem,
-  DidChangeConfigurationNotification,
   TextDocumentSyncKind,
 } from 'vscode-languageserver/node'
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import { BasicAutocomplete } from './autocomplete/basicAutocomplete'
 import { MarkdownComponentDataSource } from './datasource/markdown'
+import { writeFile, mkdir, readFileSync, existsSync } from 'fs'
+import { homedir } from 'os'
+import { join } from 'path'
+
+const cacheDir = join(homedir(), '.riverCache');
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
-let connection = createConnection(ProposedFeatures.all);
+let connection = createConnection(ProposedFeatures.all)
 
 // Create a simple text document manager. The TextDocuments class is a generic container that supports full text synchronization.
 let documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument)
 
 let version = 'release-v0.40';
 
-const dataSource = new MarkdownComponentDataSource(connection, version);
-let components = new Map<string, Component>();
+const dataSource = new MarkdownComponentDataSource(connection, version)
+let components = new Map<string, Component>()
 
-const autocomplete = new BasicAutocomplete(connection, version);
+const autocomplete = new BasicAutocomplete(connection, version)
 let completionItemsComponentList: CompletionItem[] = []
 
 connection.onInitialize((params: InitializeParams) => {
@@ -158,12 +162,57 @@ function getContext(text: string): string[] {
 
 function loadData() {
   connection.console.log("River Language Server is initializing with version " + version)
+  let cache = loadCache(version)
+  if (cache) {
+    components = cache
+    connection.console.log(`Components retrieved from cache.`);
+    autocomplete.GetCompletionItemsComponentList(components).then(data => {
+      completionItemsComponentList = data
+      connection.console.log("Autocompletion items loaded: " + completionItemsComponentList.length)
+    });
+    return
+  }
+
   dataSource.getComponents().then(data => {
     components = data
     connection.console.log("Components loaded: " + components.size)
+    saveCache(version, components)
     autocomplete.GetCompletionItemsComponentList(components).then(data => {
       completionItemsComponentList = data
       connection.console.log("Autocompletion items loaded: " + completionItemsComponentList.length)
     });
   });
+}
+
+function saveCache(version: string, components: Map<string, Component>) {
+  const cacheFilePath = join(cacheDir, `${version}.json`);
+  const dataToCache = {
+    components: Array.from(components.entries()),
+  };
+
+  mkdir(cacheDir, { recursive: true }, (err) => {
+    if (err) throw err;
+
+    writeFile(cacheFilePath, JSON.stringify(dataToCache, null, 2), (err) => {
+      if (err) throw err;
+      connection.console.log(`Cache for version ${version} saved successfully at ${cacheFilePath}`);
+    });
+  });
+}
+
+function loadCache(version: string): Map<string, Component> | undefined {
+  const cacheFilePath = join(cacheDir, `${version}.json`);
+
+  if (!existsSync(cacheFilePath)) {
+    return undefined; // If the cache file doesn't exist, return undefined
+  }
+
+  try {
+    const data = readFileSync(cacheFilePath, { encoding: 'utf8' });
+    const parsedData = JSON.parse(data);
+    return new Map(parsedData.components)
+  } catch (error) {
+    console.error('Failed to load cache:', error);
+    return undefined; // In case of error, return undefined
+  }
 }
