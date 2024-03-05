@@ -9,6 +9,10 @@ export class MarkdownComponentDataSource implements ComponentDataSource {
         this.version = version
     }
 
+    setVersion(version: string): void {
+        this.version = version
+    }
+
     componentWithoutLabels = new Set<string>(["http", "logging", "remotecfg", "tracing"])
 
     sharedBlocks = new Map<string, Argument[]>() // blockName => arguments of the block

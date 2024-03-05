@@ -5,4 +5,5 @@ export class FixtureComponentDataSource implements ComponentDataSource {
         ]);
         return components;
     }
+    setVersion(version: string){}
 }

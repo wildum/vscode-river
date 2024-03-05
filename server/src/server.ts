@@ -6,18 +6,18 @@ import {
   CompletionItem,
   DidChangeConfigurationNotification,
   TextDocumentSyncKind,
-} from 'vscode-languageserver/node';
-import { TextDocument } from 'vscode-languageserver-textdocument';
-import { BasicAutocomplete } from './autocomplete/basicAutocomplete';
-import { MarkdownComponentDataSource } from './datasource/markdown';
+} from 'vscode-languageserver/node'
+import { TextDocument } from 'vscode-languageserver-textdocument'
+import { BasicAutocomplete } from './autocomplete/basicAutocomplete'
+import { MarkdownComponentDataSource } from './datasource/markdown'
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 let connection = createConnection(ProposedFeatures.all);
 
 // Create a simple text document manager. The TextDocuments class is a generic container that supports full text synchronization.
-let documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
+let documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument)
 
-const version = 'release-v0.40';
+let version = 'release-v0.40';
 
 const dataSource = new MarkdownComponentDataSource(connection, version);
 let components = new Map<string, Component>();
@@ -26,16 +26,15 @@ const autocomplete = new BasicAutocomplete(connection, version);
 let completionItemsComponentList: CompletionItem[] = []
 
 connection.onInitialize((params: InitializeParams) => {
-  connection.console.log("River Language Server is initializing...");
 
-  dataSource.getComponents().then(data => {
-    components = data
-    connection.console.log("components loaded: " + components.size)
-    autocomplete.GetCompletionItemsComponentList(components).then(data => {
-      completionItemsComponentList = data
-      connection.console.log("autocompletion items loaded " + completionItemsComponentList.length)
-    })
-  })
+  const config = params.initializationOptions?.config;
+  if (config.agentVersion) {
+    version = config.agentVersion;
+  } else {
+    connection.console.log("use default version: " + version)
+  }
+
+  loadData()
 
   return {
     capabilities: {
@@ -49,7 +48,7 @@ connection.onInitialize((params: InitializeParams) => {
 
 connection.onCompletion(
   (textDocumentPosition: { textDocument: { uri: string; }, position: any }): CompletionItem[] => {
-    const document = documents.get(textDocumentPosition.textDocument.uri);
+    const document = documents.get(textDocumentPosition.textDocument.uri)
     if (!document) {
       return []; // No document found
     }
@@ -104,10 +103,16 @@ connection.onCompletionResolve(
   }
 );
 
-// Example of handling didChangeConfigurationNotification
 connection.onDidChangeConfiguration((change) => {
-  // Here you can handle configuration changes
-  // This is useful if your language server has settings in VS Code that users can set
+  let newVersion = change.settings.riverLanguageServer?.agentVersion
+  if (newVersion != version) {
+    version = change.settings.riverLanguageServer.agentVersion
+    // Update the dataSource and autocomplete with the new version
+    dataSource.setVersion(version)
+    autocomplete.setVersion(version)
+
+    loadData()
+  }
 });
 
 // Example of a simple text document content change event
@@ -149,4 +154,16 @@ function getContext(text: string): string[] {
     context.push(arr[arr.length - 1].includes("\"") ? arr[arr.length - 2] : arr[arr.length - 1])
   }
   return context.reverse()
+}
+
+function loadData() {
+  connection.console.log("River Language Server is initializing with version " + version)
+  dataSource.getComponents().then(data => {
+    components = data
+    connection.console.log("Components loaded: " + components.size)
+    autocomplete.GetCompletionItemsComponentList(components).then(data => {
+      completionItemsComponentList = data
+      connection.console.log("Autocompletion items loaded: " + completionItemsComponentList.length)
+    });
+  });
 }

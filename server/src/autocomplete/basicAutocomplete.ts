@@ -15,6 +15,11 @@ export class BasicAutocomplete implements Autocomplete {
         this.connection = connect
         this.version = version
     }
+
+    setVersion(version: string): void {
+        this.version = version
+    }
+
     async GetCompletionItemsComponentList(components: Map<string, Component>): Promise<CompletionItem[]> {
         let completionItems:CompletionItem[] = []
         for (const component of components.values()) {

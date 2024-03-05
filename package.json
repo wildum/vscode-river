@@ -40,7 +40,18 @@
                 "scopeName": "source.river",
                 "path": "./syntaxes/river.tmLanguage.json"
             }
-        ]
+        ],
+        "configuration": {
+            "type": "object",
+            "title": "Extension config",
+            "properties": {
+                "riverLanguageServer.agentVersion": {
+                    "type": "string",
+                    "default": "release-v0.40",
+                    "description": "The Grafana Alloy version to use."
+                }
+            }
+        }
     },
     "scripts": {
         "compile": "tsc -p ./",

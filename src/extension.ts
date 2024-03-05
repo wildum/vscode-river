@@ -31,6 +31,9 @@ export function activate(context: ExtensionContext) {
             // Notify the server about file changes to '.clientrc' files contained in the workspace
             fileEvents: workspace.createFileSystemWatcher('**/.clientrc'),
         },
+        initializationOptions: {
+            config: workspace.getConfiguration().get("riverLanguageServer")
+        }
     };
 
     // Create the language client and start the client.
@@ -42,7 +45,7 @@ export function activate(context: ExtensionContext) {
     );
 
     // Start the client. This will also launch the server
-    client.start();
+    client.start()
 }
 
 export function deactivate(): Thenable<void> | undefined {
