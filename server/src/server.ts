@@ -87,7 +87,6 @@ connection.onCompletion(
       it++
     }
 
-
     // no match, no autocomplete
     return []
 

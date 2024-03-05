@@ -58,7 +58,8 @@ export class BasicAutocomplete implements Autocomplete {
                 label: block.name,
                 kind: CompletionItemKind.Snippet,
                 insertTextFormat: InsertTextFormat.Snippet,
-                insertText: this.mapBlocks([block], false, "")
+                insertText: this.mapBlocks([block], false, ""),
+                documentation: block.doc,
             })
         }
         return completionItems
@@ -97,7 +98,8 @@ export class BasicAutocomplete implements Autocomplete {
                 label: b.name,
                 kind: CompletionItemKind.Snippet,
                 insertTextFormat: InsertTextFormat.Snippet,
-                insertText: this.mapBlocks([b], false, "")
+                insertText: this.mapBlocks([b], false, ""),
+                documentation: b.doc,
             })
         }
         return completionItems
