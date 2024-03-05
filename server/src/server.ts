@@ -12,6 +12,7 @@ import { MarkdownComponentDataSource } from './datasource/markdown'
 import { writeFile, mkdir, readFileSync, existsSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
+import { Verbosity } from './enum/verbosity'
 
 const cacheDir = join(homedir(), '.riverCache');
 
@@ -23,10 +24,12 @@ let documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument)
 
 let version = 'release-v0.40';
 
+let verbosity = Verbosity.Detailed;
+
 const dataSource = new MarkdownComponentDataSource(connection, version)
 let components = new Map<string, Component>()
 
-const autocomplete = new BasicAutocomplete(connection, version)
+const autocomplete = new BasicAutocomplete(connection, version, verbosity)
 let completionItemsComponentList: CompletionItem[] = []
 
 connection.onInitialize((params: InitializeParams) => {
@@ -36,6 +39,10 @@ connection.onInitialize((params: InitializeParams) => {
     version = config.agentVersion;
   } else {
     connection.console.log("use default version: " + version)
+  }
+
+  if (config.verbosity != verbosity) {
+    setVerbosity(config.verbosity)
   }
 
   loadData()
@@ -109,11 +116,14 @@ connection.onCompletionResolve(
 
 connection.onDidChangeConfiguration((change) => {
   let newVersion = change.settings.riverLanguageServer?.agentVersion
-  if (newVersion != version) {
+  let newVerbosity = change.settings.riverLanguageServer?.verbosity
+  //  TODO: improve this
+  if (newVersion != version || newVerbosity != verbosity) {
     version = change.settings.riverLanguageServer.agentVersion
     // Update the dataSource and autocomplete with the new version
     dataSource.setVersion(version)
     autocomplete.setVersion(version)
+    setVerbosity(newVerbosity)
     // TODO: cancel all pending requests
     loadData()
   }
@@ -214,5 +224,19 @@ function loadCache(version: string): Map<string, Component> | undefined {
   } catch (error) {
     console.error('Failed to load cache:', error);
     return undefined; // In case of error, return undefined
+  }
+}
+
+function isValidVerbosity(input: number): input is Verbosity {
+  return Object.values(Verbosity).includes(input);
+}
+
+function setVerbosity(newVerbosity: number) {
+  if (isValidVerbosity(newVerbosity)) {
+    verbosity = newVerbosity
+    autocomplete.setVerbosity(verbosity)
+    connection.console.log("set new verbosity level: " + verbosity)
+  } else {
+    connection.console.log("invalid verbosity level, accepted levels are 1, 2, 3")
   }
 }

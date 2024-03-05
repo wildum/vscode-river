@@ -8,16 +8,25 @@ import {
     Autocomplete,
 } from './autocomplete'
 
+import { Verbosity } from '../enum/verbosity'
+
 export class BasicAutocomplete implements Autocomplete {
     connection: any
     version: string
-    constructor(connect: any, version: string) {
+    verbosity: Verbosity
+
+    constructor(connect: any, version: string, verbosity: Verbosity) {
         this.connection = connect
         this.version = version
+        this.verbosity = verbosity
     }
 
     setVersion(version: string): void {
         this.version = version
+    }
+
+    setVerbosity(verbosity: Verbosity): void {
+        this.verbosity = verbosity
     }
 
     async GetCompletionItemsComponentList(components: Map<string, Component>): Promise<CompletionItem[]> {
@@ -36,11 +45,11 @@ export class BasicAutocomplete implements Autocomplete {
     buildInsertTextComponent(component: Component): string {
         const label = component.hasLabel ? " \"${1:LABEL}\"" : ""
         let autocompleteIdx = label !== "" ? 2 : 1
-        let args = this.mapArguments(component.arguments, true, true, autocompleteIdx, '\t')
+        let args = this.mapArguments(component.arguments, true, this.verbosity >= Verbosity.Normal, autocompleteIdx, '\t')
         let blocks = this.mapBlocks(component.blocks, true, '\t')
-        let optionalArgs = this.mapOptionalArguments(component.arguments, '\t')
-        let optionalBlocks = this.mapOptionalBlocks(component.blocks, '\t')
-        let exports = this.mapExports(component.exports, '\t')
+        let optionalArgs = this.verbosity >= Verbosity.Detailed ? this.mapOptionalArguments(component.arguments, '\t') : ""
+        let optionalBlocks = this.verbosity >= Verbosity.Detailed ? this.mapOptionalBlocks(component.blocks, '\t') : ""
+        let exports = this.verbosity >= Verbosity.Normal ? this.mapExports(component.exports, '\t') : ""
         
         const componentBody = [args, blocks, optionalArgs, optionalBlocks, exports].filter(part => part !== '').join('\n\n')
         return `${component.name}${label} {\n${componentBody}\n}`
@@ -114,10 +123,10 @@ export class BasicAutocomplete implements Autocomplete {
         let filteredBlocks = filterRequired? blocks.filter(block => block.required) : blocks
         return filteredBlocks
         .map(block => {
-            let args = this.mapArguments(block.arguments, true, true, 30, '\t')
+            let args = this.mapArguments(block.arguments, true, this.verbosity >= Verbosity.Normal, 30, '\t')
             let nestedBlocks = this.mapBlocks(block.blocks, true, '\t')
-            let optionalArgs = this.mapOptionalArguments(block.arguments, '\t')
-            let optionalNestedBlocks = this.mapOptionalBlocks(block.blocks, '\t')
+            let optionalArgs = this.verbosity >= Verbosity.Detailed ? this.mapOptionalArguments(block.arguments, '\t') : ""
+            let optionalNestedBlocks = this.verbosity >= Verbosity.Detailed ? this.mapOptionalBlocks(block.blocks, '\t') : ""
             
             const blockBody = [args, nestedBlocks, optionalArgs, optionalNestedBlocks].filter(part => part !== '').join('\n\n')
             return `${indent}${block.name} {\n${indent}${blockBody}\n}`
@@ -158,7 +167,8 @@ export class BasicAutocomplete implements Autocomplete {
         return filteredArgs
             .map(arg => {
                     const doc = addDoc ? `${indent}// ${arg.doc}\n` : ""
-                    return doc + `${indent}${arg.name} = \${${autocompleteIdx++}:${arg.default}} // ${arg.type}`
+                    const type = this.verbosity >= Verbosity.Normal ? ` // ${arg.type}` : ""
+                    return doc + `${indent}${arg.name} = \${${autocompleteIdx++}:${arg.default}}` + type
                 }
             )
             .join('\n')

@@ -49,6 +49,11 @@
                     "type": "string",
                     "default": "release-v0.40",
                     "description": "The Grafana Alloy version to use."
+                },
+                "riverLanguageServer.verbosity": {
+                    "type": "number",
+                    "default": 3,
+                    "description": "How much detail the autocomplete should generate."
                 }
             }
         }
