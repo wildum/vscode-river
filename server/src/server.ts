@@ -110,7 +110,7 @@ connection.onDidChangeConfiguration((change) => {
     // Update the dataSource and autocomplete with the new version
     dataSource.setVersion(version)
     autocomplete.setVersion(version)
-
+    // TODO: cancel all pending requests
     loadData()
   }
 });
