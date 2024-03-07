@@ -35,8 +35,8 @@ let completionItemsComponentList: CompletionItem[] = []
 connection.onInitialize((params: InitializeParams) => {
 
   const config = params.initializationOptions?.config;
-  if (config.agentVersion) {
-    version = config.agentVersion;
+  if (config.alloyVersion) {
+    version = config.alloyVersion;
   } else {
     connection.console.log("use default version: " + version)
   }
@@ -120,11 +120,11 @@ connection.onCompletionResolve(
 );
 
 connection.onDidChangeConfiguration((change) => {
-  let newVersion = change.settings.riverLanguageServer?.agentVersion
+  let newVersion = change.settings.riverLanguageServer?.alloyVersion
   let newVerbosity = change.settings.riverLanguageServer?.verbosity
   //  TODO: improve this
   if (newVersion != version || newVerbosity != verbosity) {
-    version = change.settings.riverLanguageServer.agentVersion
+    version = change.settings.riverLanguageServer.alloyVersion
     // Update the dataSource and autocomplete with the new version
     dataSource.setVersion(version)
     autocomplete.setVersion(version)
