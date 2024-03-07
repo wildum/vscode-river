@@ -74,11 +74,16 @@ connection.onCompletion(
     });
 
     let context = getContext(text)
-    connection.console.log("context: " + context.join(", "))
 
     // root level or in a declare
     if (context.length == 0 || context[0] == "declare") {
       return completionItemsComponentList
+    }
+
+    // quick hack to prevent the values from the autocomplete
+    const lines = text.split("\n")
+    if (lines[lines.length - 1].includes("=")) {
+      return []
     }
 
     // component level
